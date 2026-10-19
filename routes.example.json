@@ -1,0 +1,36 @@
+{
+  "roles": {
+    "cheap_worker": {
+      "label": "cheap worker",
+      "model": "your-cheap-model",
+      "effort": "xhigh"
+    },
+    "long_context_worker": {
+      "label": "long-context worker",
+      "model": "your-long-context-model",
+      "effort": "medium"
+    },
+    "orchestrator": {
+      "label": "keep in the main session"
+    },
+    "consult_then_orchestrator": {
+      "label": "consult a stronger model on the approach, then keep in the main session"
+    },
+    "cross_family_reviewer": {
+      "label": "a reviewer from a different model family",
+      "effort": "medium"
+    },
+    "fresh_reviewer": {
+      "label": "a fresh-context reviewer"
+    }
+  },
+  "protected_paths": [
+    "~/.claude",
+    "~/.codex"
+  ],
+  "workers_have_network": true,
+  "decision_client": {
+    "model": "jev-1.13.0",
+    "input_cost_per_million": 0.042
+  }
+}
