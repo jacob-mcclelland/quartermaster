@@ -1,14 +1,11 @@
 """UserPromptSubmit hook: remind Claude to digest and route. Sends NOTHING to Jev.
 
-This hook used to forward the user's raw prompt to Jev. That was the wrong design:
-the user's prompts are conversational shorthand ("do it", "fix the three gaps"), so
-Jev received a well-labelled empty box and said "delegate" on 0 of 11 real
-prompts (observed in this project's own use). Only the orchestrating model
-knows what the work actually is.
-
-So this hook no longer asks Jev anything. It saves the prompt (so the turn can
-be identified) and tells Claude to do the digesting itself: break the request
-into facts, then put those facts to Jev through route_plan.py.
+A user's prompt is often conversational shorthand ("do it", "fix the three
+gaps") whose task lives in earlier turns, so only the orchestrating model knows
+what the work actually is. This hook therefore asks Jev nothing. It saves the
+prompt (so the turn can be identified) and tells Claude to do the digesting
+itself: break the request into facts, then put those facts to Jev through
+route_plan.py.
 """
 
 import json

@@ -42,7 +42,7 @@ def load() -> dict:
         if not isinstance(override, dict):
             raise ValueError("top level is not a JSON object")
     except (OSError, ValueError) as exc:
-        print(f"agent-checks: ignoring config {local} ({exc}); using the example",
+        print(f"quartermaster: ignoring config {local} ({exc}); using the example",
               file=sys.stderr)
         return config
     return _merge(config, override)

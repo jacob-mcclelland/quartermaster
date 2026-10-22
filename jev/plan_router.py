@@ -1,16 +1,9 @@
 """Route a DIGESTED task, never raw text.
 
-The first version (observed in this project's own use, 2026-09-20) forwarded
-the user's words to Jev and failed completely: the user's prompts were
-conversational shorthand ("do it", "fix the three gaps"), so the state was a
-well-labelled empty box. Over one session it said "delegate" on 0 of 11 real
-prompts while about 1.5M tokens of subagent work ran on the expensive tier.
-
-A router in front of an API can send the raw message, because there the
-message is the full task. Inside a long conversation it is not. So here the
-orchestrating model digests first: it breaks the request into a structured
-statement of the work, and only that digest goes to Jev, with a few specific
-questions.
+Inside a long conversation, a prompt is shorthand and the task lives in earlier
+turns. The orchestrating agent digests the request into a structured statement
+of the work and sends only that digest to Jev. A router in front of an API can
+send the raw message because there the message is the whole task.
 
 The division of labour that keeps this honest:
 

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python /path/to/agent-checks/hooks/route_hook.py"
+            "command": "python /path/to/quartermaster/hooks/route_hook.py"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python /path/to/agent-checks/hooks/brief_lint.py"
+            "command": "python /path/to/quartermaster/hooks/brief_lint.py"
           }
         ]
       },
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python /path/to/agent-checks/hooks/plan_gate.py"
+            "command": "python /path/to/quartermaster/hooks/plan_gate.py"
           }
         ]
       }
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python /path/to/agent-checks/hooks/review_gate_hook.py"
+            "command": "python /path/to/quartermaster/hooks/review_gate_hook.py"
           }
         ]
       }

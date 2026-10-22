@@ -1,36 +1,43 @@
-# Agent checks
+# Quartermaster
 
-Checks I put around AI coding agents, so work is routed on purpose, briefs are specific, and finished work is judged by something other than the agent's own claim.
+Quartermaster is a router and a quality layer for AI coding agents. **It saves money and raises quality.**
 
-I design the checks and direct the AI coding agents that build them ([how I work](#how-i-work)). The judgements come from Jev, a typed-decision model from [TypeSafe](https://typesafe.ai) that answers yes/no, choice and score questions with probabilities; `jev/client.py` calls its HTTP API. This repo treats those numbers as scores to rank by, not as calibrated odds.
+**Delegated work ran at about 7% of the Opus 5.5 price for the same tokens.**
 
-## The problem
+Over 33 days, 279 Codex sessions classified as delegated work cost $28 at list prices. Priced at Claude Opus 5.5's list rates, the same token counts come to $412. Routing decisions cost $0.10 in total.
 
-Agents sometimes report success they have not achieved. Delegation can become a habit rather than a decision about the work. A check that watches commands can go blind when the command changes, and a check that fails open can stop working without anyone noticing.
+*How it's counted: a same-token price comparison, API-equivalent because I pay flat subscriptions; 2026-09-20 to 2026-10-22, at list prices as of 2026-10-22. Method: [docs/routing-savings.md](docs/routing-savings.md).*
 
-## The checks
+The price comparison does not capture what I notice most in my own use: getting a well-rounded, well-reviewed result through the whole system is far more efficient per finished task than working with one model alone.
 
-`prompt -> route -> brief lint -> dispatch -> review gate`  (plan gate runs before each file edit)
+Every task becomes a short statement of plain facts, and a low-cost classifier decides who does it: the expensive main model, a cheaper model, or a dispatched worker, so the scarce budget lasts. Then checks inspect each brief before it goes out and each piece of work when it comes back.
 
-### Per-turn route
+The name: a quartermaster hands each job the right resources and inspects what comes back.
 
-When a new prompt arrives, `hooks/route_hook.py` asks for a factual digest. It tells the agent to state `goal`, `files`, `change`, `done_check`, dependencies, scope, audience, and reversibility, then run `scripts/route_plan.py`. The router asks, among other things, whether "a competent worker who has never seen the conversation could complete this work from the digest alone." Code applies the role policy. It rejects judgement words such as "easy" in the digest and does not route a raw conversational prompt.
+I design the system and direct the AI coding agents that build it ([how I work](#how-i-work)).
 
-### Brief lint
+## The router
 
-Before a worker receives a task, `hooks/brief_lint.py` asks whether "the task identifies precisely what it is about," whether completion is checkable, and whether scope is bounded. A research brief instead needs a stated shape for its answer. It gives advice and fails open if the decision service is unavailable. It never blocks a dispatch.
+`prompt -> digest of facts -> eight questions -> policy -> worker, effort and after-steps`
 
-### Dispatch and source check
+On each working turn, `hooks/route_hook.py` asks the main agent to write a digest before `scripts/route_plan.py` routes the work. The digest names `goal`, `files`, `change`, `done_check`, `depends_on_conversation`, `out_of_scope`, `audience` and `reversibility`, with optional `pieces` for independent work. It carries the task behind a conversational prompt in terms a worker could use. `validate()` in `jev/plan_router.py` rejects judgement words such as "easy" and "risky", and any field naming an expected destination. The agent supplies facts; the classifier and the code choose the route.
 
-`scripts/dispatch.py` passes a file-backed brief to a worker, closes stdin, and reports only files changed during that dispatch. For research, it fetches the URLs the report cites (up to 10 sources and 30 claims), screens each page for instructions aimed at an agent, and checks whether the page supports each claim that cites it. A flag means inspect the claim; it never certifies the report. If a check cannot run, the output says whether that was an outage (no key, no network) or a bug in the check.
+Jev, a low-cost typed-decision model from [TypeSafe](https://typesafe.ai), answers eight questions about that digest through `jev/client.py`: the work type, how much reasoning it needs, whether it needs long context, whether a worker new to the conversation could use the digest, whether dependencies are portable, whether the done-check proves completion, the stakes and whether pieces split cleanly. I use its numbers as scores to rank by, not as calibrated odds.
 
-### Plan gate
+Code in `route()` applies the policy. Design and investigation stay with the main model; design with outside stakes gets a consult first. Work that cannot be briefed from the digest stays in the main session. Long input goes to a long-context worker; work above the complexity band stays with the main model. The remaining portable work goes to a cheaper worker at the selected effort level. Research can go to a worker when workers have network access. Code checks whether a worker can write the named paths and keeps unreachable work in session. `routes.example.json` maps these roles to models.
 
-Before a file edit, `hooks/plan_gate.py` checks the current turn's route marker. If the file was assigned to a worker, it denies the inline edit. `scripts/route_veto.py` accepts an override only with a written reason of at least 20 characters and logs it. If a turn has no route, the gate warns once. Damaged or absent state fails open.
+The route also sets what happens afterward. When the done-check proves completion, the main agent runs it and its result decides; when it does not, the route calls for a review. Higher stakes call for a reviewer from another model family. Independent pieces can fan out when the router judges that they split cleanly. `hooks/plan_gate.py` enforces an assigned worker route at edit time, and `scripts/route_veto.py` requires a written reason of at least 20 characters for an override and logs it.
 
-### Review gate
+In my own call logs for that window, 1,047 routing decisions cost $0.10 in total, about a hundredth of a cent each, with a median of half a second. Replaying the 1,038 decisions that used the current eight-question set through today's policy keeps about three quarters of tasks with the main model, sends about a quarter to workers, and calls for a cross-model review on 179 of them. The router picks by fit, not by volume, so keeping most work with the main model is the router choosing well. Each task the router sends to a cheaper worker keeps the main model's allowance for the work only it should do.
 
-After work returns, `hooks/review_gate_hook.py` and the dispatch wrapper ask whether the record shows a check actually ran and passed, and whether the change spans files, reaches people outside, or drifts from the task. The gate recommends another read when the work has that shape. It never grades correctness. When the record shows a passing check and nothing drifted, it stays silent. Low stakes need no review even when verification is missing; that is a deliberate policy choice.
+## The quality layer
+
+- **Brief lint:** `hooks/brief_lint.py` checks whether a worker brief names its target, gives a checkable completion condition and bounds its scope. A research brief needs a stated answer shape. Its advice does not block dispatch.
+- **Edit gate:** `hooks/plan_gate.py` denies an inline edit to a file assigned to a worker. `scripts/route_veto.py` logs an override with its written reason.
+- **Review gate:** `hooks/review_gate_hook.py` and `jev/review_gate.py` judge the shape of returned work: whether a check actually ran and passed, whether the change spans files or reaches people outside, and whether it drifts from the task. The gate recommends another read when that shape warrants one, and stays silent when a passing check ran and nothing drifted. It does not grade correctness.
+- **Dispatch and research source check:** `scripts/dispatch.py` sends a file-backed brief, reports only files the worker changed, and runs the returned-work checks where the result is visible. For research, it fetches up to 10 cited sources and 30 claims, screens pages for instructions aimed at an agent, and checks whether each page supports the claims citing it. A flag calls for inspection; it never certifies a report.
+
+In those same logs, 662 brief checks cost $0.02 and 1,137 review-gate checks cost $0.26. Along with routing, that is about 2,800 decisions for about 40 cents, from one person's use.
 
 ## Design rules worth copying
 
@@ -39,25 +46,14 @@ After work returns, `hooks/review_gate_hook.py` and the dispatch wrapper ask whe
 - Ask about the shape of returned work, not whether it is correct (`jev/review_gate.py`).
 - Prefer a check that ran to a judgement: when the record shows one ran and passed and nothing drifted, there is no review (`assess_output`).
 - Ask for the presence of evidence, never its absence (`was_verified`).
-- Advisory checks fail open, but say whether they failed from an outage or a bug (`scripts/dispatch.py`). The one blocking check needs a written, logged reason to override (`hooks/plan_gate.py`, `scripts/route_veto.py`).
+- Advisory checks remain nonblocking and distinguish a service interruption from a check error (`scripts/dispatch.py`). The blocking edit gate needs a written, logged reason to override (`hooks/plan_gate.py`, `scripts/route_veto.py`).
 - Label every threshold as derived or guessed, in one ledger (`jev/thresholds.py`; the source check's screening cuts are in `jev/judge.py`).
 - Pin the wording of every model question. A threshold chosen against one wording does not carry over to another (`tests/test_question_wording.py`).
-- Test the parsing, not only the decisions. A check that cannot read its input goes quiet instead of failing (`tests/test_parsing.py`).
+- Test the parsing as well as the decisions, so checks read their inputs as intended (`tests/test_parsing.py`).
 
-## What went wrong
+## Scope
 
-These are observed in my own use.
-
-- The first router sent raw prompts and delegated on 0 of 11 of them, while about 1.5M tokens of subagent work ran on the expensive tier in one session. The hook now asks for a digest of facts before the router decides.
-- Hooks saw no dispatches from 2026-09-28 to 2026-10-01 after the command changed. The dispatch wrapper now runs the returned-work and research checks when a job finishes.
-- The first good research brief failed the linter because it had no test command. The linter now checks the defined answer shape for research.
-- On one returned record, the review gate gave 0.895 for evidence being present and 0.68 for evidence being absent. It now asks only for presence.
-- An audit of the router's thresholds found four of seven were guesses with nothing behind them. The ledger now labels every cut the checks use as derived or a guess.
-- While this public copy was being prepared, two agent edits broke checks without failing a single test. A text clean-up turned every `?` in five files into `:`, which broke the regular expressions that read commands, npm shims and research reports. A trimmed file lost the import the research check needed. Both checks fail open, so they would simply have gone quiet. A diff against the private version caught the first and an independent review caught the second. `tests/test_parsing.py` and a no-key run of the source check in `tests/test_dispatch.py` now cover both, and a crash in a check is now reported as a bug rather than an outage.
-
-## Limits
-
-These checks guide a cooperating agent on one machine; they are not a security boundary. Most checks fail open. Model scores rank options and are not calibrated probabilities. The threshold cuts still need measured outcomes. It has been used by one person, on Windows. Live judgements need an API key. The paper linked in [References](REFERENCES.md) reports that no judge configuration it tested exceeded AUROC 0.65 on one benchmark; that result is not a measurement of these checks.
+Quartermaster guides a cooperating agent on one machine; it is not a security boundary. I have used it as one person on Windows. Live judgements need an API key.
 
 ## Run it
 
@@ -65,7 +61,7 @@ Python 3.10 or later and Git are required. The code uses only the Python standar
 
 I run this with Claude Code as the main agent and OpenAI's Codex CLI for dispatched workers; `routes.example.json` maps roles to models.
 
-Copy `routes.example.json` to `routes.json` and edit the local role mapping; anything you leave out keeps the example's value. The local file is ignored by Git. `AGENT_CHECKS_CONFIG` can point to another JSON file. See [the hook settings example](examples/claude-settings.example.json), replace `/path/to/agent-checks` with the checkout path, and add its `hooks` object to your settings.
+Copy `routes.example.json` to `routes.json` and edit the local role mapping; anything you leave out keeps the example's value. The local file is ignored by Git. `AGENT_CHECKS_CONFIG` can point to another JSON file. See [the hook settings example](examples/claude-settings.example.json), replace `/path/to/quartermaster` with the checkout path, and add its `hooks` object to your settings.
 
 Set `TYPESAFE_API_KEY` before live checks. In PowerShell, run `$env:TYPESAFE_API_KEY = "your-key"`; in a POSIX shell, run `export TYPESAFE_API_KEY=your-key`. The tests do not use it.
 
@@ -85,7 +81,7 @@ All runtime state lives under `logs/`, which Git ignores. These are made-up rows
 
 I learned this way of working in graduate school. As a linguist I was often paired with a computer science student. I brought the broad view and most of the ideas, and knew enough computer science to show what needed doing and which tools fit; my partner wrote most of the code. We argued it back and forth until it worked.
 
-I still work that way. Now my computer science partners are AI agents, Claude Code and Codex. This layer took about two weeks, from mid-September to the start of October 2026: research into how routers and model judges fail, a written specification, then many rounds of building, testing, catching what broke and redesigning. The agents write most of the code. I own the design, the specifications, what counts as done, and the corrections when a check fails in real use. [DESIGN-LOG.md](DESIGN-LOG.md) lists those decisions in order; the stories under "What went wrong" are the ones that taught the most.
+I still work that way. Now my computer science partners are AI agents, Claude Code and Codex. This layer took about two weeks, from mid-September to the start of October 2026: research, a written specification, then building and testing. The agents write most of the code. I own the design, the specifications and what counts as done. [DESIGN-LOG.md](DESIGN-LOG.md) lists those decisions in order.
 
 This repository is a cleaned public copy of the private version that runs in my own setup. Its history starts at publication.
 
