@@ -1,4 +1,4 @@
-"""Run each offline test as its own process."""
+"""Run every offline test_*.py file as its own process."""
 import subprocess
 import sys
 from pathlib import Path
@@ -6,6 +6,7 @@ from pathlib import Path
 def main():
     root = Path(__file__).resolve().parent
     failures = []
+    # Name-based discovery registers test_gate_async.py with the other tests.
     for path in sorted(root.glob("test_*.py")):
         result = subprocess.run([sys.executable, str(path)], cwd=root.parent,
                                 capture_output=True, text=True, encoding="utf-8",

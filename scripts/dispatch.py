@@ -179,7 +179,7 @@ def _failure(check: str, exc: Exception, advice: str) -> str:
 
 
 def run_gate(brief: str, result: str, stats: list[str], diff: str,
-             client=None) -> str:
+             client=None, read_only: bool = False) -> str:
     """The review gate's verdict, as report text. Fails open."""
     try:
         from jev.review_gate import assess_output
@@ -188,7 +188,8 @@ def run_gate(brief: str, result: str, stats: list[str], diff: str,
                    f"WHAT THE WORKER REPORTED:\n{result[:4000]}\n\n"
                    "FILES THE WORKER CHANGED:\n"
                    + ("\n".join(stats) if stats else "  (none)"))
-        verdict = assess_output(summary, client=client, diff=diff or None)
+        verdict = assess_output(summary, client=client, diff=diff or None,
+                                read_only=read_only)
     except Exception as exc:  # noqa: BLE001
         return _failure("review gate", exc, "judge the result yourself")
     if not verdict:
@@ -321,7 +322,7 @@ def main(argv=None) -> int:
 
     if not args.no_judge:
         print("\n=== REVIEW GATE ===")
-        print(run_gate(brief, result, stats, diff))
+        print(run_gate(brief, result, stats, diff, read_only=args.read_only))
         if args.kind == "research":
             print("\n=== SOURCE CHECK ===")
             print(run_source_check(result))

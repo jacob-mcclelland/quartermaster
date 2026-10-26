@@ -62,3 +62,7 @@ Turn markers and other state files are keyed by session. An offline test interle
 ## 2026-10-19: Preparing this public copy
 
 This copy includes the router's fact digest and policy, the brief and edit checks, the dispatch wrapper, the review gate and the research source check. Tests cover command and report parsing, the source check's no-key path, the wording of model questions and the labelled threshold ledger.
+
+## 2026-10-25: Judge completed work, not launches
+
+The review gate judges completed work: background agent launches are recorded as pending, then assessed from the agent's final result when a completion notification arrives. Pending and final verdicts are appended to `logs/review-gate-verdicts.jsonl`; read-only dispatches tell the gate no changes were expected, so it skips the diff question. Hook responses use ASCII-escaped JSON, and the route hook keeps its routing behavior when the review gate module cannot be imported.
