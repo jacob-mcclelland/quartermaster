@@ -19,6 +19,7 @@ ones the task asked for, which the diff and the task together contain.
 from __future__ import annotations
 
 from .client import Jev, noul, score
+from . import codex_usage
 from .thresholds import load as _load_thresholds
 from .config import load as _load_config
 
@@ -65,13 +66,25 @@ DIFF_QUESTIONS = {
 
 
 def assess_output(summary: str, client: Jev | None = None,
-                  diff: str | None = None, read_only: bool = False) -> dict | None:
+                  diff: str | None = None, read_only: bool = False,
+                  usage=None) -> dict | None:
     """Should this finished work be reviewed, and by whom?
 
     `summary` describes what was done: the task, the files touched, and what
     was run to verify it. `diff`, when given, is what the worker actually
-    changed. Returns None when no review is warranted.
+    changed. `usage` is a Codex usage reading; when omitted, the cached
+    reading is used. Returns None when no review is warranted.
     """
+    if usage is None:
+        try:
+            usage = codex_usage.cached()
+        except Exception:  # noqa: BLE001 - usage lookup must fail open
+            usage = None
+    try:
+        fallback_on, fallback_reason = codex_usage.review_fallback(usage)
+    except Exception:  # noqa: BLE001 - no reading means no fallback
+        fallback_on, fallback_reason = False, "no Codex usage reading"
+
     client = client or Jev()
     t = _load_thresholds()
     state = {
@@ -130,9 +143,14 @@ def assess_output(summary: str, client: Jev | None = None,
 
     # Use a different model family for changes spanning files.
     if p("touches_many_files") > t["many_files_at"]:
-        who = _load_config()["roles"]["cross_family_reviewer"]["label"]
-        why = ("spans several files and a different model family reviews it "
-               "with a separate perspective")
+        if fallback_on:
+            who = _load_config()["roles"]["fresh_reviewer"]["label"]
+            why = (f"Codex review fallback: {fallback_reason}; give it the spec, "
+                   "evidence and diff without the author's reasoning")
+        else:
+            who = _load_config()["roles"]["cross_family_reviewer"]["label"]
+            why = ("spans several files and a different model family reviews it "
+                   "with a separate perspective")
     else:
         who = _load_config()["roles"]["fresh_reviewer"]["label"]
         why = "contained change; a clean second read is enough"

@@ -70,3 +70,7 @@ The review gate judges completed work: background agent launches are recorded as
 ## 2026-10-26: Check every cited source
 
 The source check reads the report files a worker writes (.md, .txt, .html and .csv) as well as the worker's final message, and names the files it scanned. It collects links in Markdown, angle-bracket and bare form, and fetches and screens a link listed on its own.
+
+## 2026-10-26: Keep reviews running when worker quota runs low
+
+Independent reviews move from the cross-family reviewer to a fresh-context reviewer when the Codex five-hour window has 25% or less left or a limit is reached, so every review still happens while cheap-worker implementation continues. The reading comes from the session logs Codex already writes, is cached under `logs/`, and a missing or stale reading leaves the fallback off.

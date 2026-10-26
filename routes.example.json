@@ -18,6 +18,7 @@
     },
     "cross_family_reviewer": {
       "label": "a reviewer from a different model family",
+      "model": "your-reviewer-model",
       "effort": "medium"
     },
     "fresh_reviewer": {
@@ -29,6 +30,7 @@
     "~/.codex"
   ],
   "workers_have_network": true,
+  "review_fallback_left_percent": 25,
   "decision_client": {
     "model": "jev-1.13.0",
     "input_cost_per_million": 0.042

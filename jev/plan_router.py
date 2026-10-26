@@ -27,6 +27,7 @@ import posixpath
 import re
 
 from .client import Jev, choice, noul, score
+from . import codex_usage
 from .config import load as _load_config
 from .thresholds import load as _load_thresholds
 
@@ -161,12 +162,24 @@ def validate(digest: dict) -> list[str]:
     return problems
 
 
-def route(digest: dict, client: Jev | None = None) -> dict:
+def route(digest: dict, client: Jev | None = None, usage=None) -> dict:
     """Ask Jev the specific questions and apply policy.
 
-    Returns {worker, effort, after, fanout, reasons, answers}.
-    Worker values are role keys from the local configuration.
+    Returns {worker, effort, after, fanout, reasons, answers,
+    review_fallback}. Worker values are role keys from the local
+    configuration. `usage` is a Codex usage reading; when omitted, the
+    cached reading is used.
     """
+    if usage is None:
+        try:
+            usage = codex_usage.cached()
+        except Exception:  # noqa: BLE001 - usage lookup must fail open
+            usage = None
+    try:
+        fallback_on, fallback_reason = codex_usage.review_fallback(usage)
+    except Exception:  # noqa: BLE001 - no reading means no fallback
+        fallback_on, fallback_reason = False, "no Codex usage reading"
+
     problems = validate(digest)
     if problems:
         raise ValueError("digest rejected: " + "; ".join(problems))
@@ -241,10 +254,15 @@ def route(digest: dict, client: Jev | None = None) -> dict:
             reasons.append(f"done-check only {p('check_proves_done'):.2f} "
                            "likely to prove completion")
     if stakes >= t["high_stakes_at"] and worker != "consult_then_orchestrator":
-        reviewer = roles["cross_family_reviewer"]
-        after = ((after + "; then ") if after else "") + \
-            f"{reviewer['label']} at {reviewer.get('effort', 'default')} effort " \
-            f"before it ships (stakes {stakes:.1f}/2)"
+        if fallback_on:
+            reviewer = (f"{roles['fresh_reviewer']['label']} before it ships "
+                        f"(stakes {stakes:.1f}/2; Codex review fallback: "
+                        f"{fallback_reason})")
+        else:
+            cross = roles["cross_family_reviewer"]
+            reviewer = (f"{cross['label']} at {cross.get('effort', 'default')} "
+                        f"effort before it ships (stakes {stakes:.1f}/2)")
+        after = ((after + "; then ") if after else "") + reviewer
 
     fanout = p("splits_cleanly") >= t["fanout_at"] and len(digest.get("pieces") or []) >= 2
 
@@ -255,4 +273,5 @@ def route(digest: dict, client: Jev | None = None) -> dict:
         "fanout": fanout,
         "reasons": reasons,
         "answers": {k: v.get("value") for k, v in a.items()},
+        "review_fallback": {"on": fallback_on, "reason": fallback_reason},
     }

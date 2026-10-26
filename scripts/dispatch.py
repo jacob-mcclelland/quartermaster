@@ -21,10 +21,11 @@ What it does:
 Usage:
   python scripts/dispatch.py --folder "C:/repo" --brief brief.txt --out result.txt
       [--model ROLE_MODEL] [--effort xhigh] [--read-only] [--kind work|research]
-      [--timeout 3600] [--no-judge] [--codex "codex"]
+      [--timeout 3600] [--no-judge] [--codex "codex"] [--force-reviewer]
 
-Exit code is the worker's. The checks fail open: if Jev is unreachable the
-report says so and the dispatch result still stands.
+Exit code is the worker's, or 3 when the Codex review fallback declines the
+cross-family reviewer (--force-reviewer overrides). The checks fail open: if
+Jev is unreachable the report says so and the dispatch result still stands.
 """
 
 from __future__ import annotations
@@ -291,7 +292,8 @@ def main(argv=None) -> int:
     ap.add_argument("--brief", required=True, help="file holding the task brief")
     ap.add_argument("--out", required=True, help="file for the worker's final message")
     from jev.config import load as load_config
-    worker = load_config()["roles"]["cheap_worker"]
+    roles = load_config()["roles"]
+    worker = roles["cheap_worker"]
     ap.add_argument("--model", default=worker["model"])
     ap.add_argument("--effort", default=worker["effort"])
     ap.add_argument("--read-only", action="store_true")
@@ -299,6 +301,9 @@ def main(argv=None) -> int:
     ap.add_argument("--timeout", type=int, default=3600)
     ap.add_argument("--no-judge", action="store_true", help="skip the gate and source check")
     ap.add_argument("--codex", default="codex", help="codex command (tests pass a fake)")
+    ap.add_argument("--force-reviewer", action="store_true",
+                    help="dispatch the cross-family reviewer even when the Codex "
+                         "review fallback is on")
     args = ap.parse_args(argv)
 
     if hasattr(sys.stdout, "reconfigure"):
@@ -309,6 +314,23 @@ def main(argv=None) -> int:
         print(f"Brief is {len(brief)} characters; the command line limit allows "
               f"{MAX_BRIEF_ARG}. Put the detail in a file the worker reads.")
         return 2
+
+    reviewer_model = roles["cross_family_reviewer"].get("model")
+    if (reviewer_model and args.model.casefold() == reviewer_model.casefold()
+            and not args.force_reviewer):
+        try:
+            from jev import codex_usage
+
+            usage = codex_usage.refresh()
+            fallback_on, fallback_reason = codex_usage.review_fallback(usage)
+        except Exception:  # noqa: BLE001 - usage lookup must fail open
+            fallback_on, fallback_reason = False, "no Codex usage reading"
+        if fallback_on:
+            print(f"Codex review fallback ON ({fallback_reason}). Not dispatching "
+                  f"{args.model}: send this review to "
+                  f"{roles['fresh_reviewer']['label']} with the spec, evidence "
+                  "and diff, without the author's reasoning.")
+            return 3
 
     codex = resolve_codex(shlex.split(args.codex))
     if not codex:
@@ -337,6 +359,13 @@ def main(argv=None) -> int:
     diff, stats = worker_diff(args.folder, paths, before) if paths else ("", [])
 
     print(f"=== WORKER ({args.model} at {args.effort}) exit {code} ===")
+    try:
+        from jev import codex_usage
+
+        reading = codex_usage.refresh()
+        print(codex_usage.describe(reading))
+    except Exception:  # noqa: BLE001 - usage display must not affect dispatch
+        print("Codex usage: unavailable")
     if code == 124:
         print(f"Timed out after {args.timeout}s. Log: {log}")
     print(result.strip() or f"(no final message; see {log})")

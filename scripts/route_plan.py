@@ -140,6 +140,11 @@ def main() -> int:
         print(f"  because: {reason}")
     if r["after"]:
         print(f"  after:   {r['after']}")
+    if r.get("review_fallback", {}).get("on"):
+        print("  review:  Codex review fallback ON "
+              f"({r['review_fallback']['reason']}): independent reviews go to "
+              f"{names['fresh_reviewer']['label']}; cheap-worker implementation "
+              "continues")
     if r["fanout"]:
         print("  shape:   pieces split cleanly: fan out to parallel workers")
     print("  answers: " + ", ".join(f"{k}={v}" for k, v in r["answers"].items()))
