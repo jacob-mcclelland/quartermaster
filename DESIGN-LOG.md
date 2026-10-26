@@ -66,3 +66,7 @@ This copy includes the router's fact digest and policy, the brief and edit check
 ## 2026-10-25: Judge completed work, not launches
 
 The review gate judges completed work: background agent launches are recorded as pending, then assessed from the agent's final result when a completion notification arrives. Pending and final verdicts are appended to `logs/review-gate-verdicts.jsonl`; read-only dispatches tell the gate no changes were expected, so it skips the diff question. Hook responses use ASCII-escaped JSON, and the route hook keeps its routing behavior when the review gate module cannot be imported.
+
+## 2026-10-26: Check every cited source
+
+The source check reads the report files a worker writes (.md, .txt, .html and .csv) as well as the worker's final message, and names the files it scanned. It collects links in Markdown, angle-bracket and bare form, and fetches and screens a link listed on its own.

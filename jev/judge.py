@@ -222,7 +222,33 @@ def verify_claims(claims, sources, ask=None) -> dict:
 
 # --- research reports --------------------------------------------------------
 
-_URL = re.compile(r"https?://[^\s)\]>\"'`]+")
+_MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\(([^)]*)\)")
+_ANGLE_URL = re.compile(r"<\s*(https?://[^>\s]+)\s*>")
+_BARE_URL = re.compile(r"https?://[^\s<>\"'`]+")
+_URL_TOKEN = re.compile(
+    r"\[([^\]]*)\]\(([^)]*)\)|<\s*(https?://[^>\s]+)\s*>|"
+    r"(https?://[^\s<>\"'`]+)"
+)
+_URL_TRAILING = ".,;:)]>"
+
+
+def _line_urls(line: str) -> list[str]:
+    """Return normalized URLs from markdown links, angle links, and bare text."""
+    found = []
+    for match in _URL_TOKEN.finditer(line):
+        if match.group(2) is not None:
+            raw = match.group(2)
+            # A markdown target can also include a title; take its URL only.
+            tokens = _BARE_URL.findall(raw)
+            raw = tokens[0] if tokens else ""
+        elif match.group(3) is not None:
+            raw = match.group(3)
+        else:
+            raw = match.group(4)
+        url = raw.rstrip(_URL_TRAILING)
+        if url and url not in found:
+            found.append(url)
+    return found
 
 
 def extract_cited_claims(report: str) -> dict[str, list[str]]:
@@ -234,26 +260,45 @@ def extract_cited_claims(report: str) -> dict[str, list[str]]:
     cited: dict[str, list[str]] = {}
     total = 0
     for line in report.splitlines():
-        urls = [u.rstrip(".,;:") for u in _URL.findall(line)]
+        urls = _line_urls(line)
         if not urls:
             continue
-        claim = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line)
-        claim = _URL.sub("", claim)
-        claim = re.sub(r"\(\s*\)|\[\s*\]", "", claim)
+        for url in urls:
+            if url not in cited and len(cited) < MAX_SOURCES:
+                cited[url] = []
+
+        claim = _MARKDOWN_LINK.sub(r"\1", line)
+        claim = _ANGLE_URL.sub("", claim)
+        claim = _BARE_URL.sub("", claim)
+        claim = re.sub(r"\(\s*\)|\[\s*\]|<\s*>", "", claim)
         claim = re.sub(r"^[\s>*\-+|#\d.]+", "", claim)
         claim = re.sub(r"\s+", " ", claim)
-        # Strip what a removed URL leaves dangling: "see", "and", "via", ":".
-        claim = re.sub(r"(?:[\s|()\[\]<>:,;-]|\b(?:and|or|see|via|at|source|sources)\b)+$",
-                       "", claim, flags=re.IGNORECASE).strip()
-        if len(claim) < 20:
+        terminal = re.search(r"[.!?]+$", claim)
+        ending = terminal.group() if terminal else ""
+        if terminal:
+            claim = claim[:terminal.start()]
+            # Keep balanced punctuation such as a link label in parentheses.
+            claim = re.sub(r"(?:[\s|:,;-]|\b(?:and|or|see|via|at|source|sources)\b)+$",
+                           "", claim, flags=re.IGNORECASE).strip()
+        else:
+            # Strip what a removed URL leaves dangling: "see", "and", "via", ":".
+            claim = re.sub(r"(?:[\s|()\[\]<>:,;-]|\b(?:and|or|see|via|at|source|sources)\b)+$",
+                           "", claim, flags=re.IGNORECASE).strip()
+        if ending and claim:
+            claim += ending
+
+        # A short, standalone markdown label names a source; it does not make
+        # a claim just because its label happens to be 20 characters long.
+        body = re.sub(r"^[\s>*\-+|#\d.]+", "", line).strip()
+        link_only = re.fullmatch(r"\[([^\]]*)\]\([^)]*\)[\s.,;:]*", body)
+        if link_only and len(link_only.group(1).strip()) <= 20:
+            claim = ""
+        if len(claim) < 20 or total >= MAX_CLAIMS:
             continue
-        for u in dict.fromkeys(urls):
-            if u not in cited and len(cited) >= MAX_SOURCES:
-                continue
-            cited.setdefault(u, []).append(claim)
+        for u in urls:
+            if u in cited and claim not in cited[u]:
+                cited[u].append(claim)
         total += 1
-        if total >= MAX_CLAIMS:
-            break
     return cited
 
 
@@ -266,12 +311,18 @@ def check_report(report: str, ask=None) -> dict:
         url, claims = item
         text, error = fetch_url(url)
         if text is None:
-            return {"url": url, "error": error,
-                    "claims": [{"claim": c, "flag": True,
-                                "verdict": "unreachable"} for c in claims]}
+            result = {"url": url, "error": error,
+                      "claims": [{"claim": c, "flag": True,
+                                  "verdict": "unreachable"} for c in claims]}
+            if not claims:
+                result["uncited"] = True
+            return result
         r = judge_source(text, claims, screen=True, ask=ask,
                          label="report_check")
-        return {"url": url, "screen": r["screen"], "claims": r["claims"]}
+        result = {"url": url, "screen": r["screen"], "claims": r["claims"]}
+        if not claims:
+            result["uncited"] = True
+        return result
 
     with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
         sources = list(pool.map(one, cited.items()))

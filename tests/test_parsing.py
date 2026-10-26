@@ -94,8 +94,12 @@ def test_report_sources() -> None:
         "No link on this line at all, so it is not a cited claim.",
     ])
     cited = judge.extract_cited_claims(report)
+    # Changed expectation: link-only URLs remain in the cited URL set.
     check("https and http both found",
-          set(cited) == {"https://example.com/paper", "http://example.org/guide"}, repr(cited))
+          set(cited) == {"https://example.com/paper", "http://example.org/guide",
+                         "https://example.net/x"}, repr(cited))
+    # Changed expectation: a link-only URL has no claim text.
+    check("link-only URL has no claims", cited.get("https://example.net/x") == [])
     check("trailing punctuation dropped from URL", "https://example.com/paper" in cited)
     check("claim text kept without the URL",
           cited["https://example.com/paper"] == ["Judges barely beat chance at spotting false success"],

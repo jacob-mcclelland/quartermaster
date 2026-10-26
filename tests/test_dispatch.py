@@ -173,7 +173,10 @@ def main():
         if env_key is not None:
             os.environ["TYPESAFE_API_KEY"] = env_key
     check("source check without a key is an outage, not a crash",
-          text.startswith("source check unavailable") and "API key" in text, text)
+          text.startswith("scanned: final message")
+          and len(text.splitlines()) > 1
+          and text.splitlines()[1].startswith("source check unavailable")
+          and "API key" in text, text)
 
     print("PASS")
 
