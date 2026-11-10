@@ -4,7 +4,7 @@ Quartermaster is a router and a quality layer for AI coding agents.
 
 It balances cost and quality: cheap models take the build work, and a reviewer from a different model family checks what comes back.
 
-**Seven weeks of agent work listed about 14% (about $1,070) under a bill with every Codex token priced at Opus rates, while paying for more independent review than before.** That prices the same tokens at Claude Opus 5.5 rates, token for token, with no allowance for redone work.
+**Seven weeks of agent work listed about 14% (about $1,070) under an all-Opus bill, while paying for more independent review than before.** That prices the same tokens at Claude Opus 5.5 rates, token for token, with no allowance for redone work.
 
 Comparing the 27 days before the router went live on 2026-09-20 with the 51 days after, and leaving out one-shot batch jobs:
 
@@ -13,7 +13,7 @@ Comparing the 27 days before the router went live on 2026-09-20 with the 51 days
 - **What review caught,** before it went live: a new tournament clock that could overwrite a running game, venue TVs that could stay on an old blind level, an unverified answer that would have been marked as checked (caught before it shipped), and an admin check that accepted the wrong sign-in type.
 - **The overhead.** The router itself: 1,419 routing decisions cost $0.14, and 1,486 review-gate checks cost $0.39.
 
-*How it's counted: list-price equivalents from my own usage logs, because I pay flat subscriptions. New models and prices arrived during the comparison, so these numbers describe what happened rather than isolate the router's effect. Method, tables and caveats: [docs/spend-shift-2026-11.md](docs/spend-shift-2026-11.md).*
+*How it's counted: list-price equivalents from my own usage logs, because I pay flat subscriptions. New models and prices arrived during the comparison, so these numbers describe what happened rather than isolate the router's effect. Method, tables and caveats: [docs/spend-shift-2026-11.md](docs/spend-shift-2026-11.md), also published as [the full report](https://creativebyjake.com/jev/report).*
 
 Every task becomes a short statement of plain facts, and a low-cost classifier decides who does it: the expensive main model, a cheaper model, or a dispatched worker, so the scarce budget lasts. Then checks inspect each brief before it goes out and each piece of work when it comes back.
 
