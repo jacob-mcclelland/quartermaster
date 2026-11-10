@@ -1,5 +1,7 @@
 # Routing and the cost of delegated work
 
+*This is an earlier, narrower comparison: the delegated slice only, priced as if the main model had done the same work. It is not a measure of overall savings. For the whole-spend picture before and after the router, see [spend-shift-2026-11.md](spend-shift-2026-11.md).*
+
 ## What this is
 
 I compare the same tokens for work the router delegated from 2026-09-20 to 2026-10-22 (33 days), priced at Claude Opus 5.5 list rates. I assume Opus would have used the same tokens with the same cache-hit mix. This is API-equivalent: I pay flat subscriptions, so it is not dollars returned and does not measure subscription quota directly. It covers the delegated slice only, has no matched-quality evaluation, and does not price the main model's own work on the tasks it kept.
@@ -58,7 +60,7 @@ I apply this formula once at the worker's prices and once at Opus 5.5's prices:
 | GPT-5.6 Terra | 2 | $0.64 | $0.95 |
 | **Total** | **279** | **$28.31** | **$412.34** |
 
-Worker cost is 6.86% of the Opus reference ($28.31 / $412.34), which the README rounds to about 7%. Rows are rounded individually, so they sum to a cent or two less than the totals. Cross-model reviews (147 sessions, $185.71 at list price) are a quality step and are not in the headline. If Sol's cached rate were $0.20 instead of the proxy's $0.10, worker cost would rise by $5.48.
+Worker cost is 6.86% of the Opus reference ($28.31 / $412.34), about 7%. Rows are rounded individually, so they sum to a cent or two less than the totals. Cross-model reviews (147 sessions, $185.71 at list price) are a quality step and are not in the headline. If Sol's cached rate were $0.20 instead of the proxy's $0.10, worker cost would rise by $5.48.
 
 ## Limits of the comparison
 

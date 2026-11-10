@@ -1,14 +1,19 @@
 # Quartermaster
 
-Quartermaster is a router and a quality layer for AI coding agents. **It saves money and raises quality.**
+Quartermaster is a router and a quality layer for AI coding agents.
 
-**Delegated work ran at about 7% of the Opus 5.5 price for the same tokens.**
+It balances cost and quality: cheap models take the build work, and a reviewer from a different model family checks what comes back.
 
-Over 33 days, 279 Codex sessions classified as delegated work cost $28 at list prices. Priced at Claude Opus 5.5's list rates, the same token counts come to $412. Routing decisions cost $0.10 in total.
+**Seven weeks of agent work listed about 14% (about $1,070) under a bill with every Codex token priced at Opus rates, while paying for more independent review than before.** That prices the same tokens at Claude Opus 5.5 rates, token for token, with no allowance for redone work.
 
-*How it's counted: a same-token price comparison, API-equivalent because I pay flat subscriptions; 2026-09-20 to 2026-10-22, at list prices as of 2026-10-22. Method: [docs/routing-savings.md](docs/routing-savings.md).*
+Comparing the 27 days before the router went live on 2026-09-20 with the 51 days after, and leaving out one-shot batch jobs:
 
-The price comparison does not capture what I notice most in my own use: getting a well-rounded, well-reviewed result through the whole system is far more efficient per finished task than working with one model alone.
+- **Where it came from.** Cheap models took the build work. The cheapest, GPT-6 Luna, listed at $46 for tokens that would list at $1,330 on Opus 5.5, about 3.5% of the price. All build work listed at $220 against about $1,627. Luna went from writing 7.5% of the output tokens to 41%.
+- **What it paid for.** 430 pieces of work went to an independent, higher-priced reviewer from a different model family, and about 7 in 10 came back with at least one issue (labels checked by hand on a sample). Review's share of list-price cost rose from 5% to 11%, on purpose.
+- **What review caught,** before it went live: a new tournament clock that could overwrite a running game, venue TVs that could stay on an old blind level, an unverified answer that would have been marked as checked (caught before it shipped), and an admin check that accepted the wrong sign-in type.
+- **The overhead.** The router itself: 1,419 routing decisions cost $0.14, and 1,486 review-gate checks cost $0.39.
+
+*How it's counted: list-price equivalents from my own usage logs, because I pay flat subscriptions. New models and prices arrived during the comparison, so these numbers describe what happened rather than isolate the router's effect. Method, tables and caveats: [docs/spend-shift-2026-11.md](docs/spend-shift-2026-11.md).*
 
 Every task becomes a short statement of plain facts, and a low-cost classifier decides who does it: the expensive main model, a cheaper model, or a dispatched worker, so the scarce budget lasts. Then checks inspect each brief before it goes out and each piece of work when it comes back.
 
@@ -28,7 +33,7 @@ Code in `route()` applies the policy. Design and investigation stay with the mai
 
 The route also sets what happens afterward. When the done-check proves completion, the main agent runs it and its result decides; when it does not, the route calls for a review. Higher stakes call for a reviewer from another model family. Independent pieces can fan out when the router judges that they split cleanly. `hooks/plan_gate.py` enforces an assigned worker route at edit time, and `scripts/route_veto.py` requires a written reason of at least 20 characters for an override and logs it.
 
-In my own call logs for that window, 1,047 routing decisions cost $0.10 in total, about a hundredth of a cent each, with a median of half a second. Replaying the 1,038 decisions that used the current eight-question set through today's policy keeps about three quarters of tasks with the main model, sends about a quarter to workers, and calls for a cross-model review on 179 of them. The router picks by fit, not by volume, so keeping most work with the main model is the router choosing well. Each task the router sends to a cheaper worker keeps the main model's allowance for the work only it should do.
+Each routing decision costs about a hundredth of a cent, with a median of half a second. In a replay of the decisions logged in an earlier, shorter window (2026-09-20 to 2026-10-22) through today's policy, the router keeps about three quarters of tasks with the main model, sends about a quarter to workers, and calls for a cross-model review on 179 of them. The router picks by fit, not by volume, so keeping most work with the main model is the router choosing well. Each task the router sends to a cheaper worker keeps the main model's allowance for the work only it should do.
 
 ## The quality layer
 
